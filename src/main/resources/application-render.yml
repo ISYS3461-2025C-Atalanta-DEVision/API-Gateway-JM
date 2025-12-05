@@ -1,0 +1,99 @@
+# Render Deployment Profile for API Gateway
+# This profile is activated when SPRING_PROFILES_ACTIVE=render
+
+server:
+  port: ${PORT:8080}  # Render sets PORT env variable
+
+spring:
+  application:
+    name: api-gateway
+
+  # Redis Configuration (for token revocation cache)
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+      # For Render Redis with TLS
+      ssl:
+        enabled: ${REDIS_SSL_ENABLED:false}
+
+  cloud:
+    gateway:
+      # Disable Eureka service discovery for standalone mode
+      # Routes will use direct URLs instead of lb://
+      discovery:
+        locator:
+          enabled: false
+
+      # Default filters applied to all routes
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials Access-Control-Allow-Methods Access-Control-Allow-Headers Access-Control-Expose-Headers Access-Control-Max-Age, RETAIN_FIRST
+
+# CORS Configuration - Only frontend can access
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+
+# Eureka Client Configuration
+# For Render, point to your deployed Eureka server
+eureka:
+  client:
+    enabled: ${EUREKA_ENABLED:true}
+    service-url:
+      defaultZone: ${EUREKA_URL:http://eureka:eureka-secret-2024@localhost:8761/eureka/}
+    fetch-registry: true
+    register-with-eureka: true
+  instance:
+    prefer-ip-address: false
+    hostname: ${RENDER_EXTERNAL_HOSTNAME:localhost}
+    instance-id: ${spring.application.name}:${RENDER_SERVICE_ID:${random.uuid}}
+    # Use non-secure port for internal communication
+    non-secure-port-enabled: true
+    secure-port-enabled: false
+
+# Internal API Key for service-to-service communication
+internal:
+  api-key: ${INTERNAL_API_KEY}
+
+# JWT Configuration (must match auth-service)
+jwt:
+  secret: ${JWT_SECRET}
+  access-token-expiration: 900000      # 15 minutes
+  refresh-token-expiration: 604800000  # 7 days
+  issuer: devision-jm-auth-service
+
+# Circuit Breaker Configuration
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10000
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+    instances:
+      authServiceCircuitBreaker:
+        baseConfig: default
+
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 5s
+
+# Actuator Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+
+# Logging Configuration (production level)
+logging:
+  level:
+    root: WARN
+    com.devision.jm.gateway: INFO
+    org.springframework.cloud.gateway: WARN
