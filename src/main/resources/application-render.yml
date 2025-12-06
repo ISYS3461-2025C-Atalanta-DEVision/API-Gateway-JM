@@ -20,11 +20,11 @@ spring:
 
   cloud:
     gateway:
-      # Disable Eureka service discovery for standalone mode
-      # Routes will use direct URLs instead of lb://
+      # Enable auto-discovery routing - any service in Eureka is accessible
       discovery:
         locator:
-          enabled: false
+          enabled: true
+          lower-case-service-id: true
 
       # Default filters applied to all routes
       default-filters:
