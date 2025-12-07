@@ -17,8 +17,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
+import javax.annotation.PostConstruct;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -37,16 +39,49 @@ public class GlobalAuthFilter implements GlobalFilter, Ordered {
     private static final String EMAIL_CLAIM = "email";
     private static final String TOKEN_REVOKED_KEY_PREFIX = "revoked:";
 
+    // Default public endpoints (fallback if not configured)
+    private static final List<String> DEFAULT_PUBLIC_ENDPOINTS = Arrays.asList(
+            "/actuator/health",
+            "/actuator/info",
+            "/auth-service/api/v1/auth/login",
+            "/auth-service/api/v1/auth/register",
+            "/auth-service/api/v1/auth/refresh",
+            "/auth-service/api/v1/auth/activate",
+            "/auth-service/api/v1/auth/forgot-password",
+            "/auth-service/api/v1/auth/reset-password",
+            "/auth-service/api/v1/auth/countries",
+            "/auth-service/api/v1/auth/validate",
+            "/auth-service/oauth2",
+            "/auth-service/login/oauth2",
+            "/api/v1/auth/login",
+            "/api/v1/auth/register",
+            "/api/v1/auth/refresh",
+            "/api/v1/auth/activate",
+            "/api/v1/auth/forgot-password",
+            "/api/v1/auth/reset-password",
+            "/api/v1/auth/countries"
+    );
+
     private final ReactiveRedisTemplate<String, String> redisTemplate;
     private final SecretKey signingKey;
-
-    @Value("${gateway.public-endpoints:/actuator/health,/api/v1/auth/login,/api/v1/auth/register,/api/v1/auth/refresh}")
-    private List<String> publicEndpoints;
+    private final List<String> publicEndpoints;
 
     public GlobalAuthFilter(ReactiveRedisTemplate<String, String> redisTemplate,
-                           @Value("${jwt.secret:defaultSecretKeyForDevelopmentPurposesOnly123456}") String jwtSecret) {
+                           @Value("${jwt.secret:defaultSecretKeyForDevelopmentPurposesOnly123456}") String jwtSecret,
+                           @Value("${gateway.public-endpoints:}") List<String> configuredEndpoints) {
         this.redisTemplate = redisTemplate;
         this.signingKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+        // Use configured endpoints if available, otherwise use defaults
+        this.publicEndpoints = (configuredEndpoints != null && !configuredEndpoints.isEmpty()
+                && !configuredEndpoints.get(0).isEmpty())
+                ? configuredEndpoints
+                : DEFAULT_PUBLIC_ENDPOINTS;
+    }
+
+    @PostConstruct
+    public void init() {
+        log.info("GlobalAuthFilter initialized with {} public endpoints", publicEndpoints.size());
+        publicEndpoints.forEach(endpoint -> log.info("  Public endpoint: {}", endpoint));
     }
 
     @Override
