@@ -1,6 +1,5 @@
 package com.devision.jm.gateway.filter;
 
-import com.devision.jm.gateway.exception.UnauthorizedException;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
