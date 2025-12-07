@@ -62,6 +62,40 @@ jwt:
   refresh-token-expiration: 604800000  # 7 days
   issuer: devision-jm-auth-service
 
+# Gateway Configuration
+gateway:
+  # Public endpoints that don't require authentication
+  # Paths include service prefix when using Eureka discovery (e.g., /auth-service/...)
+  public-endpoints:
+    - /actuator/health
+    - /actuator/info
+    # Auth service public endpoints (with service prefix for Eureka routing)
+    - /auth-service/api/v1/auth/login
+    - /auth-service/api/v1/auth/register
+    - /auth-service/api/v1/auth/refresh
+    - /auth-service/api/v1/auth/activate/**
+    - /auth-service/api/v1/auth/forgot-password
+    - /auth-service/api/v1/auth/reset-password/**
+    - /auth-service/api/v1/auth/countries
+    - /auth-service/api/v1/auth/validate
+    # OAuth2 endpoints
+    - /auth-service/oauth2/**
+    - /auth-service/login/oauth2/**
+    # Legacy paths (without service prefix)
+    - /api/v1/auth/login
+    - /api/v1/auth/register
+    - /api/v1/auth/refresh
+    - /api/v1/auth/activate/**
+    - /api/v1/auth/forgot-password
+    - /api/v1/auth/reset-password/**
+    - /api/v1/auth/countries
+    # Company registration
+    - /api/v1/companies/register
+    - /company-service/api/v1/companies/register
+    # Public job listings
+    - /api/v1/jobs/public/**
+    - /job-service/api/v1/jobs/public/**
+
 # Circuit Breaker Configuration
 resilience4j:
   circuitbreaker:
