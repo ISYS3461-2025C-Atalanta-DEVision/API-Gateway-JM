@@ -23,9 +23,9 @@ The API Gateway automatically routes requests to any service registered with Eur
 JA team deploys `ja-application-service` and registers with Eureka:
 
 ```
-https://gateway.onrender.com/ja-application-service/api/v1/apply
-                              └──────────┬─────────┘└─────┬─────┘
-                                 service name         endpoint
+https://gateway.onrender.com/ja-application-service/api/apply
+                              └──────────┬─────────┘└────┬───┘
+                                 service name        endpoint
 ```
 
 The gateway automatically forwards this to `ja-application-service`.
@@ -59,9 +59,9 @@ gateway:
   public-endpoints:
     - /actuator/health
     - /actuator/info
-    - /auth-service/api/v1/auth/login
-    - /auth-service/api/v1/auth/register
-    - /job-service/api/v1/jobs/public/**
+    - /auth-service/api/auth/login
+    - /auth-service/api/auth/register
+    - /job-service/api/jobs/public/**
 ```
 
 ### Adding New Public Endpoints

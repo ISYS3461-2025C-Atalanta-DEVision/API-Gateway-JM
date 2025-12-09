@@ -41,7 +41,7 @@ public class InternalApiKeyFilter implements GlobalFilter, Ordered {
 
     @Override
     public int getOrder() {
-        // Run before authentication filter but after logging
-        return -100;
+        // Run after authentication filter (-100) to add internal key to validated requests
+        return -50;
     }
 }
