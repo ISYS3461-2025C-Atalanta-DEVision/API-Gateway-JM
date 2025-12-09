@@ -25,8 +25,8 @@ package com.devision.jm.gateway.filter;
  *         │ Missing? → 401 Unauthorized
  *         ▼
  *   ┌─────────────────────────────────────┐
- *   │ 3. Validate JWT token               │
- *   │    - Check signature (not tampered) │
+ *   │ 3. Decrypt & Validate JWE token     │
+ *   │    - Decrypt with AES-256 key       │
  *   │    - Check expiration               │
  *   └─────────────────────────────────────┘
  *         │ Invalid? → 401 Unauthorized
@@ -50,10 +50,10 @@ package com.devision.jm.gateway.filter;
  * ============================================================================
  */
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.ExpiredJwtException;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
+import com.nimbusds.jose.JOSEException;
+import com.nimbusds.jose.crypto.DirectDecrypter;
+import com.nimbusds.jwt.EncryptedJWT;
+import com.nimbusds.jwt.JWTClaimsSet;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -68,14 +68,21 @@ import reactor.core.publisher.Mono;
 
 import jakarta.annotation.PostConstruct;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.text.ParseException;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 
 /**
  * Global Authentication Filter
  *
- * Applies JWT authentication to ALL routes including auto-discovered services.
+ * Applies JWE (encrypted token) authentication to ALL routes including auto-discovered services.
+ * Updated to support requirement 2.2.1 (JWE tokens)
+ *
  * - Public endpoints: configurable via application.yml (gateway.public-endpoints)
  * - Admin endpoints: configurable via application.yml (gateway.admin-endpoints)
  */
@@ -116,7 +123,7 @@ public class GlobalAuthFilter implements GlobalFilter, Ordered {
 
     // ==================== INSTANCE VARIABLES ====================
 
-    private final SecretKey signingKey;
+    private final SecretKey encryptionKey;
     private final List<String> publicEndpoints;
     private final List<String> adminEndpoints;
 
@@ -125,7 +132,9 @@ public class GlobalAuthFilter implements GlobalFilter, Ordered {
     public GlobalAuthFilter(@Value("${jwt.secret:defaultSecretKeyForDevelopmentPurposesOnly123456}") String jwtSecret,
                            @Value("${gateway.public-endpoints:}") List<String> configuredPublicEndpoints,
                            @Value("${gateway.admin-endpoints:}") List<String> configuredAdminEndpoints) {
-        this.signingKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+
+        // Generate encryption key from JWT secret (must match Auth Service)
+        this.encryptionKey = generateEncryptionKey(jwtSecret);
 
         // Use configured public endpoints from YAML if available, otherwise use defaults
         this.publicEndpoints = (configuredPublicEndpoints != null && !configuredPublicEndpoints.isEmpty()
@@ -140,14 +149,30 @@ public class GlobalAuthFilter implements GlobalFilter, Ordered {
                 : List.of();
     }
 
+    /**
+     * Generate AES-256 encryption key from JWT secret
+     * Must match the key generation in Auth Service's JwtConfig
+     */
+    private SecretKey generateEncryptionKey(String jwtSecret) {
+        String keySource = jwtSecret + "_encryption";  // Must match Auth Service derivation
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] keyBytes = digest.digest(keySource.getBytes(StandardCharsets.UTF_8));
+            return new SecretKeySpec(keyBytes, "AES");
+        } catch (NoSuchAlgorithmException e) {
+            log.error("Failed to generate encryption key: {}", e.getMessage());
+            throw new RuntimeException("Failed to generate encryption key", e);
+        }
+    }
+
     @PostConstruct
     public void init() {
-        log.info("GlobalAuthFilter initialized with {} public endpoints", publicEndpoints.size());
-        publicEndpoints.forEach(endpoint -> log.info("  Public endpoint: {}", endpoint));
+        log.info("GlobalAuthFilter initialized with {} public endpoints (JWE mode)", publicEndpoints.size());
+        publicEndpoints.forEach(endpoint -> log.debug("  Public endpoint: {}", endpoint));
 
         if (!adminEndpoints.isEmpty()) {
             log.info("GlobalAuthFilter initialized with {} admin endpoints", adminEndpoints.size());
-            adminEndpoints.forEach(endpoint -> log.info("  Admin endpoint: {}", endpoint));
+            adminEndpoints.forEach(endpoint -> log.debug("  Admin endpoint: {}", endpoint));
         }
     }
 
@@ -174,12 +199,23 @@ public class GlobalAuthFilter implements GlobalFilter, Ordered {
         String token = authHeader.substring(BEARER_PREFIX.length());
 
         try {
-            // ========== CHECK 3: Is the JWT token valid? ==========
-            Claims claims = validateToken(token);
+            // ========== CHECK 3: Decrypt and validate JWE token (2.2.1) ==========
+            JWTClaimsSet claims = decryptAndValidateToken(token);
+
+            if (claims == null) {
+                return onError(exchange, "Invalid token", HttpStatus.UNAUTHORIZED);
+            }
+
+            // Check if token is expired
+            Date expiration = claims.getExpirationTime();
+            if (expiration != null && expiration.before(new Date())) {
+                log.warn("Token expired for request to {}", path);
+                return onError(exchange, "Token has expired", HttpStatus.UNAUTHORIZED);
+            }
 
             // ========== CHECK 4: Is this an admin endpoint? ==========
             if (isAdminEndpoint(path)) {
-                String role = claims.get(ROLE_CLAIM, String.class);
+                String role = claims.getStringClaim(ROLE_CLAIM);
                 if (!ADMIN_ROLE.equals(role)) {
                     log.warn("Non-admin user attempted to access admin endpoint: {}", path);
                     return onError(exchange, "Admin access required", HttpStatus.FORBIDDEN);
@@ -187,17 +223,24 @@ public class GlobalAuthFilter implements GlobalFilter, Ordered {
             }
 
             // ========== ALL CHECKS PASSED - Forward to downstream service ==========
+            String userId = claims.getStringClaim(USER_ID_CLAIM);
+            String email = claims.getStringClaim(EMAIL_CLAIM);
+            String role = claims.getStringClaim(ROLE_CLAIM);
+
             ServerHttpRequest modifiedRequest = request.mutate()
-                    .header("X-User-Id", claims.get(USER_ID_CLAIM, String.class))
-                    .header("X-User-Email", claims.get(EMAIL_CLAIM, String.class))
-                    .header("X-User-Role", claims.get(ROLE_CLAIM, String.class))
+                    .header("X-User-Id", userId != null ? userId : "")
+                    .header("X-User-Email", email != null ? email : "")
+                    .header("X-User-Role", role != null ? role : "")
                     .build();
 
             return chain.filter(exchange.mutate().request(modifiedRequest).build());
 
-        } catch (ExpiredJwtException e) {
-            log.warn("Token expired for request to {}", path);
-            return onError(exchange, "Token has expired", HttpStatus.UNAUTHORIZED);
+        } catch (ParseException e) {
+            log.warn("Invalid JWE token format: {}", e.getMessage());
+            return onError(exchange, "Invalid token format", HttpStatus.UNAUTHORIZED);
+        } catch (JOSEException e) {
+            log.warn("Failed to decrypt JWE token: {}", e.getMessage());
+            return onError(exchange, "Invalid token", HttpStatus.UNAUTHORIZED);
         } catch (Exception e) {
             log.error("Token validation failed: {}", e.getMessage());
             return onError(exchange, "Invalid token", HttpStatus.UNAUTHORIZED);
@@ -211,12 +254,20 @@ public class GlobalAuthFilter implements GlobalFilter, Ordered {
 
     // ==================== HELPER METHODS ====================
 
-    private Claims validateToken(String token) {
-        return Jwts.parser()
-                .verifyWith(signingKey)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
+    /**
+     * Decrypt and validate JWE token (Requirement 2.2.1)
+     * Uses AES-256-GCM direct encryption
+     */
+    private JWTClaimsSet decryptAndValidateToken(String token) throws ParseException, JOSEException {
+        // Parse the JWE token
+        EncryptedJWT encryptedJWT = EncryptedJWT.parse(token);
+
+        // Decrypt with AES-256 key
+        DirectDecrypter decrypter = new DirectDecrypter(encryptionKey);
+        encryptedJWT.decrypt(decrypter);
+
+        // Return decrypted claims
+        return encryptedJWT.getJWTClaimsSet();
     }
 
     private boolean isPublicEndpoint(String path) {
