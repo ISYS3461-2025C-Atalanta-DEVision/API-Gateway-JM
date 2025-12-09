@@ -32,19 +32,13 @@ package com.devision.jm.gateway.filter;
  *         │ Invalid? → 401 Unauthorized
  *         ▼
  *   ┌─────────────────────────────────────┐
- *   │ 4. Check Redis for revocation       │
- *   │    - Was user logged out?           │
- *   └─────────────────────────────────────┘
- *         │ Revoked? → 401 Unauthorized
- *         ▼
- *   ┌─────────────────────────────────────┐
- *   │ 5. Check role (if admin endpoint)   │
+ *   │ 4. Check role (if admin endpoint)   │
  *   │    - Does user have ADMIN role?     │
  *   └─────────────────────────────────────┘
  *         │ Not admin? → 403 Forbidden
  *         ▼
  *   ┌─────────────────────────────────────┐
- *   │ 6. Add user info to headers         │
+ *   │ 5. Add user info to headers         │
  *   │    - X-User-Id                      │
  *   │    - X-User-Email                   │
  *   │    - X-User-Role                    │
@@ -65,7 +59,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
-import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
@@ -96,7 +89,6 @@ public class GlobalAuthFilter implements GlobalFilter, Ordered {
     private static final String ROLE_CLAIM = "role";
     private static final String USER_ID_CLAIM = "userId";
     private static final String EMAIL_CLAIM = "email";
-    private static final String TOKEN_REVOKED_KEY_PREFIX = "revoked:";
     private static final String ADMIN_ROLE = "ADMIN";
 
     // Default public endpoints (fallback if application.yml is not configured)
@@ -124,18 +116,15 @@ public class GlobalAuthFilter implements GlobalFilter, Ordered {
 
     // ==================== INSTANCE VARIABLES ====================
 
-    private final ReactiveRedisTemplate<String, String> redisTemplate;
     private final SecretKey signingKey;
     private final List<String> publicEndpoints;
     private final List<String> adminEndpoints;
 
     // ==================== CONSTRUCTOR ====================
 
-    public GlobalAuthFilter(ReactiveRedisTemplate<String, String> redisTemplate,
-                           @Value("${jwt.secret:defaultSecretKeyForDevelopmentPurposesOnly123456}") String jwtSecret,
+    public GlobalAuthFilter(@Value("${jwt.secret:defaultSecretKeyForDevelopmentPurposesOnly123456}") String jwtSecret,
                            @Value("${gateway.public-endpoints:}") List<String> configuredPublicEndpoints,
                            @Value("${gateway.admin-endpoints:}") List<String> configuredAdminEndpoints) {
-        this.redisTemplate = redisTemplate;
         this.signingKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
 
         // Use configured public endpoints from YAML if available, otherwise use defaults
@@ -188,31 +177,23 @@ public class GlobalAuthFilter implements GlobalFilter, Ordered {
             // ========== CHECK 3: Is the JWT token valid? ==========
             Claims claims = validateToken(token);
 
-            // ========== CHECK 4: Has the token been revoked? ==========
-            return checkTokenRevocation(token)
-                    .flatMap(isRevoked -> {
-                        if (isRevoked) {
-                            return onError(exchange, "Token has been revoked", HttpStatus.UNAUTHORIZED);
-                        }
+            // ========== CHECK 4: Is this an admin endpoint? ==========
+            if (isAdminEndpoint(path)) {
+                String role = claims.get(ROLE_CLAIM, String.class);
+                if (!ADMIN_ROLE.equals(role)) {
+                    log.warn("Non-admin user attempted to access admin endpoint: {}", path);
+                    return onError(exchange, "Admin access required", HttpStatus.FORBIDDEN);
+                }
+            }
 
-                        // ========== CHECK 5: Is this an admin endpoint? ==========
-                        if (isAdminEndpoint(path)) {
-                            String role = claims.get(ROLE_CLAIM, String.class);
-                            if (!ADMIN_ROLE.equals(role)) {
-                                log.warn("Non-admin user attempted to access admin endpoint: {}", path);
-                                return onError(exchange, "Admin access required", HttpStatus.FORBIDDEN);
-                            }
-                        }
+            // ========== ALL CHECKS PASSED - Forward to downstream service ==========
+            ServerHttpRequest modifiedRequest = request.mutate()
+                    .header("X-User-Id", claims.get(USER_ID_CLAIM, String.class))
+                    .header("X-User-Email", claims.get(EMAIL_CLAIM, String.class))
+                    .header("X-User-Role", claims.get(ROLE_CLAIM, String.class))
+                    .build();
 
-                        // ========== ALL CHECKS PASSED - Forward to downstream service ==========
-                        ServerHttpRequest modifiedRequest = request.mutate()
-                                .header("X-User-Id", claims.get(USER_ID_CLAIM, String.class))
-                                .header("X-User-Email", claims.get(EMAIL_CLAIM, String.class))
-                                .header("X-User-Role", claims.get(ROLE_CLAIM, String.class))
-                                .build();
-
-                        return chain.filter(exchange.mutate().request(modifiedRequest).build());
-                    });
+            return chain.filter(exchange.mutate().request(modifiedRequest).build());
 
         } catch (ExpiredJwtException e) {
             log.warn("Token expired for request to {}", path);
@@ -236,12 +217,6 @@ public class GlobalAuthFilter implements GlobalFilter, Ordered {
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
-    }
-
-    private Mono<Boolean> checkTokenRevocation(String token) {
-        String tokenKey = TOKEN_REVOKED_KEY_PREFIX + token;
-        return redisTemplate.hasKey(tokenKey)
-                .onErrorReturn(false);
     }
 
     private boolean isPublicEndpoint(String path) {
