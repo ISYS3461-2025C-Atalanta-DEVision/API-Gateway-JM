@@ -15,16 +15,20 @@ eureka:
     enabled: ${EUREKA_ENABLED:true}
     service-url:
       defaultZone: ${EUREKA_URL:http://eureka:eureka-secret-2024@localhost:8761/eureka/}
+    healthcheck:
+      enabled: true
   instance:
     prefer-ip-address: false
-    hostname: ${RENDER_EXTERNAL_HOSTNAME:localhost}
+    hostname: api-gateway-khhr.onrender.com
     instance-id: ${spring.application.name}:${RENDER_SERVICE_ID:${random.uuid}}
     non-secure-port-enabled: false
     secure-port-enabled: true
     secure-port: 443
-    home-page-url: https://${eureka.instance.hostname}/
-    status-page-url: https://${eureka.instance.hostname}/actuator/info
-    health-check-url: https://${eureka.instance.hostname}/actuator/health
+    home-page-url: https://api-gateway-khhr.onrender.com/
+    status-page-url: https://api-gateway-khhr.onrender.com/actuator/info
+    health-check-url: https://api-gateway-khhr.onrender.com/actuator/health
+    health-check-url-path: /actuator/health
+    status-page-url-path: /actuator/info
 
 # Secrets - No defaults in production (must be set in Render env vars)
 internal:
