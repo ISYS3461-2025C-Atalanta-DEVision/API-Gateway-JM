@@ -49,6 +49,9 @@ management:
   endpoint:
     health:
       show-details: when_authorized
+  health:
+    eureka:
+      enabled: false  # Don't let Eureka status affect health endpoint
 
 # Circuit breaker - longer timeout for cloud
 resilience4j:
