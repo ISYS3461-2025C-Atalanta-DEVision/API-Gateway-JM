@@ -19,8 +19,12 @@ eureka:
     prefer-ip-address: false
     hostname: ${RENDER_EXTERNAL_HOSTNAME:localhost}
     instance-id: ${spring.application.name}:${RENDER_SERVICE_ID:${random.uuid}}
-    non-secure-port-enabled: true
-    secure-port-enabled: false
+    non-secure-port-enabled: false
+    secure-port-enabled: true
+    secure-port: 443
+    home-page-url: https://${eureka.instance.hostname}/
+    status-page-url: https://${eureka.instance.hostname}/actuator/info
+    health-check-url: https://${eureka.instance.hostname}/actuator/health
 
 # Secrets - No defaults in production (must be set in Render env vars)
 internal:
