@@ -12,6 +12,12 @@ spring:
         locator:
           enabled: true
           lower-case-service-id: true
+          # Exclude kafka-registrar from automatic routing (it's not an HTTP service)
+          predicates:
+            - name: Path
+              args:
+                pattern: "'/'+serviceId+'/**'"
+          include-expression: "!(serviceId.equals('kafka-registrar'))"
 
       # Default filters applied to all routes
       default-filters:
@@ -24,8 +30,10 @@ spring:
             allowedOrigins:
               - "http://localhost:3000"
               - "http://localhost:5173"
+              - "http://localhost:5174"
               - "http://127.0.0.1:3000"
               - "http://127.0.0.1:5173"
+              - "http://127.0.0.1:5174"
             allowedMethods:
               - GET
               - POST
@@ -137,7 +145,7 @@ management:
 # CORS Configuration
 # In production, set CORS_ALLOWED_ORIGINS to your frontend URL(s)
 cors:
-  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173}
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,http://localhost:5174,http://127.0.0.1:3000,http://127.0.0.1:5173,http://127.0.0.1:5174}
 
 # Logging Configuration
 logging:
