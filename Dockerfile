@@ -1,5 +1,5 @@
-# Standalone Dockerfile for Render Deployment
-# This Dockerfile builds the API Gateway as a standalone service without multi-module dependencies
+# Dockerfile for Render Deployment
+# This Dockerfile builds the API Gateway as a standalone service
 
 FROM eclipse-temurin:21-jdk AS builder
 
@@ -8,8 +8,8 @@ WORKDIR /app
 # Install Maven
 RUN apt-get update && apt-get install -y maven && rm -rf /var/lib/apt/lists/*
 
-# Copy standalone pom.xml for dependency caching
-COPY pom-standalone.xml ./pom.xml
+# Copy pom.xml for dependency caching
+COPY pom.xml ./pom.xml
 
 # Download dependencies (cached layer)
 RUN mvn dependency:go-offline -B || true
