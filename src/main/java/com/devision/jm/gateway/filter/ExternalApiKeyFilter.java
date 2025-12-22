@@ -60,6 +60,19 @@ public class ExternalApiKeyFilter implements GlobalFilter, Ordered {
     @Value("${external.endpoints:}")
     private List<String> externalEndpoints;
 
+    @PostConstruct
+    public void init() {
+        if (externalApiKey == null || externalApiKey.isEmpty()) {
+            log.info("ExternalApiKeyFilter disabled - no external API key configured");
+        } else {
+            log.info("ExternalApiKeyFilter initialized with {} external endpoints",
+                    externalEndpoints != null ? externalEndpoints.size() : 0);
+            if (externalEndpoints != null && !externalEndpoints.isEmpty()) {
+                externalEndpoints.forEach(ep -> log.info("  - External endpoint: {}", ep));
+            }
+        }
+    }
+
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         // Skip if external API key is not configured
@@ -88,7 +101,7 @@ public class ExternalApiKeyFilter implements GlobalFilter, Ordered {
             return onError(exchange, "Invalid external API key", HttpStatus.UNAUTHORIZED);
         }
 
-        log.debug("Valid external API key for request to: {}", path);
+        log.info("Valid external API key for request to: {}", path);
 
         // Add header to indicate external API validation passed
         // This tells GlobalAuthFilter to skip JWE validation
