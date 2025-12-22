@@ -1,7 +1,7 @@
 package com.devision.jm.gateway.filter;
 
+import com.devision.jm.gateway.config.ExternalApiConfig;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
@@ -30,21 +30,6 @@ import java.util.List;
  *     api-key: your-secret-key-for-ja-team
  *     endpoints:
  *       - /profile-service/api/profiles
- *       - /api/profiles
- * 
- * Request: GET /profile-service/api/profiles
-         X-External-Api-Key: devision-ja-external-api-key-2025
-                    │
-                    ▼
-         Is path whitelisted? → YES
-                    │
-                    ▼
-         Is API key correct? → YES
-                    │
-                    ▼
-         Add X-External-Api-Validated: true
- * 
- * 
  */
 @Slf4j
 @Component
@@ -53,28 +38,30 @@ public class ExternalApiKeyFilter implements GlobalFilter, Ordered {
     public static final String EXTERNAL_API_KEY_HEADER = "X-External-Api-Key";
     private static final String EXTERNAL_API_VALIDATED_HEADER = "X-External-Api-Validated";
 
-    private final String externalApiKey;
-    private final List<String> externalEndpoints;
+    private final ExternalApiConfig config;
 
-    public ExternalApiKeyFilter(
-            @Value("${external.api-key:}") String externalApiKey,
-            @Value("${external.endpoints:}") List<String> externalEndpoints) {
-        this.externalApiKey = externalApiKey;
-        this.externalEndpoints = externalEndpoints != null ? externalEndpoints : List.of();
+    public ExternalApiKeyFilter(ExternalApiConfig config) {
+        this.config = config;
 
         // Log initialization
-        if (this.externalApiKey == null || this.externalApiKey.isEmpty()) {
+        String apiKey = config.getApiKey();
+        List<String> endpoints = config.getEndpoints();
+
+        if (apiKey == null || apiKey.isEmpty()) {
             log.info("ExternalApiKeyFilter disabled - no external API key configured");
         } else {
-            log.info("ExternalApiKeyFilter initialized with {} external endpoints", this.externalEndpoints.size());
-            this.externalEndpoints.forEach(ep -> log.info("  - External endpoint: {}", ep));
+            log.info("ExternalApiKeyFilter initialized with {} external endpoints", endpoints.size());
+            endpoints.forEach(ep -> log.info("  - External endpoint: {}", ep));
         }
     }
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+        String apiKey = config.getApiKey();
+        List<String> endpoints = config.getEndpoints();
+
         // Skip if external API key is not configured
-        if (externalApiKey == null || externalApiKey.isEmpty()) {
+        if (apiKey == null || apiKey.isEmpty()) {
             return chain.filter(exchange);
         }
 
@@ -82,7 +69,7 @@ public class ExternalApiKeyFilter implements GlobalFilter, Ordered {
         String path = request.getURI().getPath();
 
         // Check if this is an external API endpoint
-        if (!isExternalEndpoint(path)) {
+        if (!isExternalEndpoint(path, endpoints)) {
             return chain.filter(exchange);
         }
 
@@ -94,7 +81,7 @@ public class ExternalApiKeyFilter implements GlobalFilter, Ordered {
             return onError(exchange, "Missing external API key", HttpStatus.UNAUTHORIZED);
         }
 
-        if (!externalApiKey.equals(providedApiKey)) {
+        if (!apiKey.equals(providedApiKey)) {
             log.warn("Invalid external API key for request to: {}", path);
             return onError(exchange, "Invalid external API key", HttpStatus.UNAUTHORIZED);
         }
@@ -116,12 +103,12 @@ public class ExternalApiKeyFilter implements GlobalFilter, Ordered {
         return -150;
     }
 
-    private boolean isExternalEndpoint(String path) {
-        if (externalEndpoints == null || externalEndpoints.isEmpty()) {
+    private boolean isExternalEndpoint(String path, List<String> endpoints) {
+        if (endpoints == null || endpoints.isEmpty()) {
             return false;
         }
 
-        return externalEndpoints.stream()
+        return endpoints.stream()
                 .anyMatch(pattern -> {
                     if (pattern.endsWith("/**")) {
                         String prefix = pattern.substring(0, pattern.length() - 3);
