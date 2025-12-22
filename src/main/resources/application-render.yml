@@ -41,7 +41,6 @@ external:
   api-key: ${EXTERNAL_API_KEY}
   endpoints:
     - /profile-service/api/profiles
-    - /api/profiles
 
 jwt:
   secret: ${JWT_SECRET}
