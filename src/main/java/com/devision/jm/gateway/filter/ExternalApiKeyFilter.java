@@ -11,7 +11,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
-import jakarta.annotation.PostConstruct;
 import java.util.List;
 
 /**
@@ -54,22 +53,21 @@ public class ExternalApiKeyFilter implements GlobalFilter, Ordered {
     public static final String EXTERNAL_API_KEY_HEADER = "X-External-Api-Key";
     private static final String EXTERNAL_API_VALIDATED_HEADER = "X-External-Api-Validated";
 
-    @Value("${external.api-key:}")
-    private String externalApiKey;
+    private final String externalApiKey;
+    private final List<String> externalEndpoints;
 
-    @Value("${external.endpoints:}")
-    private List<String> externalEndpoints;
+    public ExternalApiKeyFilter(
+            @Value("${external.api-key:}") String externalApiKey,
+            @Value("${external.endpoints:}") List<String> externalEndpoints) {
+        this.externalApiKey = externalApiKey;
+        this.externalEndpoints = externalEndpoints != null ? externalEndpoints : List.of();
 
-    @PostConstruct
-    public void init() {
-        if (externalApiKey == null || externalApiKey.isEmpty()) {
+        // Log initialization
+        if (this.externalApiKey == null || this.externalApiKey.isEmpty()) {
             log.info("ExternalApiKeyFilter disabled - no external API key configured");
         } else {
-            log.info("ExternalApiKeyFilter initialized with {} external endpoints",
-                    externalEndpoints != null ? externalEndpoints.size() : 0);
-            if (externalEndpoints != null && !externalEndpoints.isEmpty()) {
-                externalEndpoints.forEach(ep -> log.info("  - External endpoint: {}", ep));
-            }
+            log.info("ExternalApiKeyFilter initialized with {} external endpoints", this.externalEndpoints.size());
+            this.externalEndpoints.forEach(ep -> log.info("  - External endpoint: {}", ep));
         }
     }
 
