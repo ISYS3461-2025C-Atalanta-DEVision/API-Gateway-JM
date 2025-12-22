@@ -183,6 +183,13 @@ public class GlobalAuthFilter implements GlobalFilter, Ordered {
         ServerHttpRequest request = exchange.getRequest();
         String path = request.getURI().getPath();
 
+        // ========== CHECK 0: Was external API key validated? ==========
+        String externalApiValidated = request.getHeaders().getFirst("X-External-Api-Validated");
+        if ("true".equals(externalApiValidated)) {
+            log.debug("External API key validated, skipping JWT auth for: {}", path);
+            return chain.filter(exchange);
+        }
+
         // ========== CHECK 1: Is this a public endpoint? ==========
         if (isPublicEndpoint(path)) {
             log.debug("Public endpoint accessed: {}", path);

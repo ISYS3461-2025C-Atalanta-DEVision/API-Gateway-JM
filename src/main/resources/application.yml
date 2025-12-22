@@ -59,9 +59,17 @@ eureka:
     prefer-ip-address: true
     instance-id: ${spring.application.name}:${random.uuid}
 
-# Internal API Key for service-to-service communication
+# Internal API Key for service-to-service communication (JM microservices)
 internal:
   api-key: ${INTERNAL_API_KEY:devision-internal-api-key-2024-secure}
+
+# External API Key for partner systems (Job Applicant team)
+# Share this key with JA team for service-to-service communication
+external:
+  api-key: ${EXTERNAL_API_KEY:devision-ja-external-api-key-2024}
+  endpoints:
+    - /profile-service/api/profiles
+    - /api/profiles
 
 # JWT Configuration (must match auth-service)
 jwt:
