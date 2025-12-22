@@ -108,14 +108,24 @@ public class ExternalApiKeyFilter implements GlobalFilter, Ordered {
             return false;
         }
 
+        // Exclude /me endpoint - it requires JWT auth, not API key
+        if (path.endsWith("/me")) {
+            return false;
+        }
+
         return endpoints.stream()
                 .anyMatch(pattern -> {
                     if (pattern.endsWith("/**")) {
                         String prefix = pattern.substring(0, pattern.length() - 3);
                         return path.startsWith(prefix);
                     }
-                    // Match exact path or path with query params
-                    return path.equals(pattern) || path.startsWith(pattern + "?") || path.startsWith(pattern);
+                    // Match:
+                    // 1. Exact path: /profile-service/api/profiles
+                    // 2. Path with query: /profile-service/api/profiles?search=...
+                    // 3. Path with ID: /profile-service/api/profiles/123abc
+                    return path.equals(pattern) ||
+                           path.startsWith(pattern + "?") ||
+                           path.startsWith(pattern + "/");
                 });
     }
 
