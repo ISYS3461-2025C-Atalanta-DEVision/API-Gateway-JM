@@ -17,13 +17,15 @@ import java.util.List;
  * External API Key Filter for Service-to-Service Communication
  *
  * This filter validates external API keys for partner systems (e.g., Job Applicant team)
- * to access specific endpoints without JWT authentication.
+ * to access specific endpoints. Supports dual authentication:
+ * - External API Key: For partner systems (JA team)
+ * - JWT Token: For internal users (JM team)
  *
  * Flow:
- * 1. Check if the request path matches an external API endpoint
- * 2. If yes, validate the X-External-Api-Key header
- * 3. If valid, allow the request to proceed (bypass JWT auth)
- * 4. If invalid or missing, return 401 Unauthorized
+ * 1. Check if X-External-Api-Key header is present
+ * 2. If present and valid, mark as validated (bypass JWT auth)
+ * 3. If present but invalid, return 401 Unauthorized
+ * 4. If not present, let request continue to JWT validation
  *
  * Configuration in application.yml:
  *   external:
@@ -73,14 +75,16 @@ public class ExternalApiKeyFilter implements GlobalFilter, Ordered {
             return chain.filter(exchange);
         }
 
-        // Validate external API key
+        // Check if external API key header is present
         String providedApiKey = request.getHeaders().getFirst(EXTERNAL_API_KEY_HEADER);
 
+        // If no API key provided, let request continue to JWT validation
         if (providedApiKey == null || providedApiKey.isBlank()) {
-            log.warn("Missing external API key for request to: {}", path);
-            return onError(exchange, "Missing external API key", HttpStatus.UNAUTHORIZED);
+            log.debug("No external API key provided for: {}, falling through to JWT auth", path);
+            return chain.filter(exchange);
         }
 
+        // API key is provided - validate it
         if (!apiKey.equals(providedApiKey)) {
             log.warn("Invalid external API key for request to: {}", path);
             return onError(exchange, "Invalid external API key", HttpStatus.UNAUTHORIZED);
@@ -105,11 +109,6 @@ public class ExternalApiKeyFilter implements GlobalFilter, Ordered {
 
     private boolean isExternalEndpoint(String path, List<String> endpoints) {
         if (endpoints == null || endpoints.isEmpty()) {
-            return false;
-        }
-
-        // Exclude /me endpoint - it requires JWT auth, not API key
-        if (path.endsWith("/me")) {
             return false;
         }
 
