@@ -108,9 +108,9 @@ gateway:
     # Company registration
     - /api/companies/register
     - /company-service/api/companies/register
-    # Public job listings
-    - /api/jobs/public/**
-    - /job-service/api/jobs/public/**
+    # Public job listings (Job Post Service)
+    - /api/job-posts/public/**
+    - /jobpost-service/api/job-posts/public/**
 
   # Admin-only endpoints (require ADMIN role)
   # Add admin endpoints here - users without ADMIN role get 403 Forbidden
