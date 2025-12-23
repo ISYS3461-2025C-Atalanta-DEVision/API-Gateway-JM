@@ -69,6 +69,7 @@ external:
   api-key: ${EXTERNAL_API_KEY:devision-ja-external-api-key-2024}
   endpoints:
     - /profile-service/api/profiles
+    - /profile-service/api/events
 
 # JWT Configuration (must match auth-service)
 jwt:
