@@ -4,6 +4,12 @@
 
 server:
   port: ${PORT:8080}  # Render sets PORT env variable
+  max-http-request-header-size: 64KB
+
+# File upload support - larger buffer for multipart
+spring:
+  codec:
+    max-in-memory-size: 50MB
 
 # CORS - Override for production
 cors:

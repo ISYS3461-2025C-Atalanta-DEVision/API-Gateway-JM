@@ -1,9 +1,21 @@
 server:
   port: 8080
+  # Increase max request size for file uploads
+  max-http-request-header-size: 64KB
 
 spring:
   application:
     name: api-gateway
+
+  # Enable multipart file upload support
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 50MB
+      max-request-size: 55MB
+
+  codec:
+    max-in-memory-size: 50MB
 
   cloud:
     gateway:
