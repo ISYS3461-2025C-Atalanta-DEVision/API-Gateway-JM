@@ -7,12 +7,12 @@ spring:
   application:
     name: api-gateway
 
-  # Enable multipart file upload support
-  servlet:
+  # WebFlux multipart support for file uploads through gateway
+  webflux:
     multipart:
-      enabled: true
-      max-file-size: 50MB
-      max-request-size: 55MB
+      max-in-memory-size: 50MB
+      max-disk-usage-per-part: 50MB
+      max-parts: 10
 
   codec:
     max-in-memory-size: 50MB
