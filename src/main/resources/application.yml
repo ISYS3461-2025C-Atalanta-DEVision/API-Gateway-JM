@@ -17,6 +17,11 @@ spring:
   codec:
     max-in-memory-size: 50MB
 
+  # Enable static resource serving for OpenAPI spec
+  web:
+    resources:
+      static-locations: classpath:/static/
+
   cloud:
     gateway:
       # Enable service discovery based routing
