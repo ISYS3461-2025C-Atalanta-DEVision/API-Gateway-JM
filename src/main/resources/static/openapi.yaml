@@ -1,0 +1,1033 @@
+openapi: 3.0.3
+info:
+  title: DevVision Job Manager API
+  version: "1.0"
+  description: |
+    API Gateway for DevVision Job Manager microservices.
+
+    ## Authentication
+
+    ### For Internal Users (JWT)
+    Use Bearer token authentication with JWT obtained from `/auth-service/api/auth/login`.
+
+    ### For External Partners (JA Team)
+    Use API Key authentication with header: `X-API-Key: <your-api-key>`
+
+    ## Available Services
+
+    - **Auth Service** - Authentication & Authorization
+    - **Profile Service** - Company Profiles & Events
+    - **Job Post Service** - Job Listings
+
+    ## External API Endpoints (API Key Access)
+
+    The following endpoints are accessible with API Key for JA team:
+    - `/profile-service/api/profiles` - Company profiles
+    - `/jobpost-service/api/job-posts` - Job post data
+  contact:
+    name: DevVision Team
+    email: support@devision.com
+
+servers:
+  - url: https://api-gateway-khhr.onrender.com
+    description: Production Server
+  - url: http://localhost:8080
+    description: Local Development
+
+tags:
+  - name: Auth
+    description: Authentication & Authorization endpoints
+  - name: Profile
+    description: Company Profile management
+  - name: Events
+    description: Company Events management
+  - name: JobPosts
+    description: Job Post management
+
+security:
+  - bearerAuth: []
+  - apiKeyAuth: []
+
+paths:
+  # ==================== AUTH SERVICE ====================
+  /auth-service/api/auth/register:
+    post:
+      tags:
+        - Auth
+      summary: Register a new company account
+      description: Register a new company account. An activation email will be sent.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompanyRegistrationRequest'
+      responses:
+        '201':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationResponse'
+        '400':
+          description: Validation error
+        '409':
+          description: Email already exists
+
+  /auth-service/api/auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Login and get JWT tokens
+      description: Authenticate user and receive JWE access and refresh tokens.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid credentials
+        '403':
+          description: Account not activated
+
+  /auth-service/api/auth/refresh:
+    post:
+      tags:
+        - Auth
+      summary: Refresh JWT tokens
+      description: Exchange a valid refresh token for new access and refresh tokens.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Token refresh successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid or expired refresh token
+
+  /auth-service/api/auth/logout:
+    post:
+      tags:
+        - Auth
+      summary: Logout and revoke tokens
+      description: Revoke access and refresh tokens (adds to Redis blacklist).
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Logout successful
+
+  /auth-service/api/auth/activate/{token}:
+    get:
+      tags:
+        - Auth
+      summary: Activate account
+      description: Activate account using the token from activation email.
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Account activated
+        '400':
+          description: Invalid or expired token
+
+  /auth-service/api/auth/countries:
+    get:
+      tags:
+        - Auth
+      summary: Get list of valid countries
+      description: Returns list of valid countries for registration dropdown.
+      security: []
+      responses:
+        '200':
+          description: List of countries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                example: ["Australia", "United States", "Vietnam"]
+
+  /auth-service/api/auth/validate:
+    get:
+      tags:
+        - Auth
+      summary: Validate JWT token
+      description: Validate a JWE token (used by API Gateway).
+      responses:
+        '200':
+          description: Token validation result
+          content:
+            application/json:
+              schema:
+                type: boolean
+
+  # ==================== PROFILE SERVICE ====================
+  /profile-service/api/profiles/me:
+    get:
+      tags:
+        - Profile
+      summary: Get current user's profile
+      description: Returns the profile of the authenticated user.
+      responses:
+        '200':
+          description: Profile found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponse'
+        '404':
+          description: Profile not found
+
+    put:
+      tags:
+        - Profile
+      summary: Update current user's profile
+      description: Update the profile of the authenticated user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileFullUpdateRequest'
+      responses:
+        '200':
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponse'
+
+  /profile-service/api/profiles/me/avatar:
+    post:
+      tags:
+        - Profile
+      summary: Upload avatar
+      description: Upload avatar image for current user's profile.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                avatar:
+                  type: string
+                  format: binary
+              required:
+                - avatar
+      responses:
+        '200':
+          description: Avatar uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponse'
+
+  /profile-service/api/profiles/{userId}:
+    get:
+      tags:
+        - Profile
+      summary: Get profile by user ID
+      description: Returns the profile for a specific user ID. Used for viewing company info on job posts.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Profile found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponse'
+        '404':
+          description: Profile not found
+
+  /profile-service/api/profiles:
+    get:
+      tags:
+        - Profile
+      summary: Search profiles
+      description: Search profiles by email or company name. Available via API Key for JA team.
+      parameters:
+        - name: search
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Search term (email or company name)
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProfileResponse'
+
+  # ==================== EVENTS ====================
+  /profile-service/api/events:
+    post:
+      tags:
+        - Events
+      summary: Create a new event
+      description: Create a new company event with file uploads.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  description: Event title
+                caption:
+                  type: string
+                  description: Event caption/description
+                coverImage:
+                  type: string
+                  format: binary
+                  description: Cover image (required)
+                images:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: Additional images (optional, max 10)
+                video:
+                  type: string
+                  format: binary
+                  description: Video file (optional)
+              required:
+                - title
+                - caption
+                - coverImage
+      responses:
+        '200':
+          description: Event created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventResponse'
+
+  /profile-service/api/events/me:
+    get:
+      tags:
+        - Events
+      summary: Get my company events
+      description: Returns all events created by the current company.
+      parameters:
+        - name: includeAll
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Include non-active events
+      responses:
+        '200':
+          description: List of events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EventResponse'
+
+  /profile-service/api/events/event/{eventId}:
+    get:
+      tags:
+        - Events
+      summary: Get event by ID
+      description: Returns a single event by its ID.
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Event found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventResponse'
+        '404':
+          description: Event not found
+
+  /profile-service/api/events/company/{companyId}:
+    get:
+      tags:
+        - Events
+      summary: Get events by company ID
+      description: Returns all active events for a company.
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EventResponse'
+
+  /profile-service/api/events/{eventId}:
+    put:
+      tags:
+        - Events
+      summary: Update an event
+      description: Update an existing event.
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventUpdateRequest'
+      responses:
+        '200':
+          description: Event updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventResponse'
+
+    delete:
+      tags:
+        - Events
+      summary: Delete an event
+      description: Delete an event by ID.
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Event deleted
+
+  # ==================== JOB POST SERVICE ====================
+  /jobpost-service/api/job-posts:
+    get:
+      tags:
+        - JobPosts
+      summary: Get all job posts
+      description: Returns all job posts. Available via API Key for JA team.
+      responses:
+        '200':
+          description: List of job posts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JobPostResponse'
+
+    post:
+      tags:
+        - JobPosts
+      summary: Create a new job post
+      description: Create a new job post. Company ID is taken from JWT token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobPostCreateRequest'
+      responses:
+        '201':
+          description: Job post created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobPostResponse'
+
+  /jobpost-service/api/job-posts/{jobId}:
+    get:
+      tags:
+        - JobPosts
+      summary: Get job post by ID
+      description: Returns a single job post by its ID.
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: JP-26319302-c7e1-4368-834c-75d3626512c9
+      responses:
+        '200':
+          description: Job post found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobPostResponse'
+        '404':
+          description: Job post not found
+
+    put:
+      tags:
+        - JobPosts
+      summary: Update a job post
+      description: Update an existing job post.
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JobPostUpdateRequest'
+      responses:
+        '200':
+          description: Job post updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobPostResponse'
+
+    delete:
+      tags:
+        - JobPosts
+      summary: Delete a job post
+      description: Delete a job post by ID.
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Job post deleted
+
+  /jobpost-service/api/job-posts/{jobId}/publish:
+    post:
+      tags:
+        - JobPosts
+      summary: Publish a job post
+      description: Change job post status to PUBLIC.
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Job post published
+
+  /jobpost-service/api/job-posts/{jobId}/unpublish:
+    post:
+      tags:
+        - JobPosts
+      summary: Unpublish a job post
+      description: Change job post status to PRIVATE.
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Job post unpublished
+
+  /jobpost-service/api/job-posts/company/{companyId}:
+    get:
+      tags:
+        - JobPosts
+      summary: Get job posts by company
+      description: Returns all job posts for a specific company.
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of job posts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JobPostResponse'
+
+  /jobpost-service/api/job-posts/search:
+    get:
+      tags:
+        - JobPosts
+      summary: Search job posts
+      description: Search job posts with filters.
+      parameters:
+        - name: keyword
+          in: query
+          schema:
+            type: string
+          description: Search keyword (title, description)
+        - name: location
+          in: query
+          schema:
+            type: string
+          description: Job location
+        - name: employmentTypes
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          description: Employment types filter
+        - name: skills
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          description: Required skills filter
+        - name: minSalary
+          in: query
+          schema:
+            type: integer
+          description: Minimum salary
+        - name: maxSalary
+          in: query
+          schema:
+            type: integer
+          description: Maximum salary
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JobPostResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token from /auth-service/api/auth/login
+
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: External API Key for JA team access
+
+  schemas:
+    # ==================== AUTH SCHEMAS ====================
+    CompanyRegistrationRequest:
+      type: object
+      required:
+        - email
+        - password
+        - country
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          example: company@example.com
+        password:
+          type: string
+          minLength: 8
+          description: Must contain number, special char, and uppercase letter
+          example: Password123!
+        country:
+          type: string
+          maxLength: 100
+          example: Australia
+        companyName:
+          type: string
+          maxLength: 255
+          example: DevVision Pty Ltd
+        phoneNumber:
+          type: string
+          description: Must start with valid international dial code
+          example: "+61412345678"
+        streetAddress:
+          type: string
+          maxLength: 255
+        city:
+          type: string
+          maxLength: 100
+          example: Melbourne
+
+    RegistrationResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+          example: "60d5ec49f1a2c8b1a4e12345"
+        email:
+          type: string
+          example: company@example.com
+        message:
+          type: string
+          example: Registration successful. Please check your email to activate your account.
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: company@example.com
+        password:
+          type: string
+          example: Password123!
+        deviceInfo:
+          type: string
+          description: Optional device information for token tracking
+
+    LoginResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: JWE encrypted access token
+        refreshToken:
+          type: string
+          description: Refresh token for token renewal
+        tokenType:
+          type: string
+          default: Bearer
+        expiresIn:
+          type: integer
+          description: Access token expiration in seconds
+          example: 900
+        refreshExpiresIn:
+          type: integer
+          description: Refresh token expiration in seconds
+          example: 604800
+
+    RefreshTokenRequest:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+
+    # ==================== PROFILE SCHEMAS ====================
+    ProfileResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        email:
+          type: string
+        companyName:
+          type: string
+        avatarUrl:
+          type: string
+        logoUrl:
+          type: string
+        aboutUs:
+          type: string
+        whoWeAreLookingFor:
+          type: string
+        country:
+          type: string
+        city:
+          type: string
+        streetAddress:
+          type: string
+        phoneNumber:
+          type: string
+        subscriptionType:
+          type: string
+          enum: [FREE, PREMIUM]
+        subscriptionStartDate:
+          type: string
+          format: date-time
+        subscriptionEndDate:
+          type: string
+          format: date-time
+        daysRemaining:
+          type: integer
+        subscriptionActive:
+          type: boolean
+        authProvider:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ProfileFullUpdateRequest:
+      type: object
+      required:
+        - email
+        - companyName
+        - country
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+        companyName:
+          type: string
+          maxLength: 255
+        phoneNumber:
+          type: string
+        country:
+          type: string
+          maxLength: 100
+        city:
+          type: string
+          maxLength: 100
+        streetAddress:
+          type: string
+          maxLength: 255
+        aboutUs:
+          type: string
+          maxLength: 5000
+        whoWeAreLookingFor:
+          type: string
+          maxLength: 5000
+
+    # ==================== EVENT SCHEMAS ====================
+    EventResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        companyId:
+          type: string
+        title:
+          type: string
+        caption:
+          type: string
+        coverImageUrl:
+          type: string
+        imageUrls:
+          type: array
+          items:
+            type: string
+        videoUrl:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, ACTIVE, FAILED]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    EventUpdateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        caption:
+          type: string
+
+    # ==================== JOB POST SCHEMAS ====================
+    JobPostCreateRequest:
+      type: object
+      required:
+        - title
+        - description
+        - location
+        - salaryType
+      properties:
+        title:
+          type: string
+          maxLength: 100
+          example: Senior Software Engineer
+        description:
+          type: string
+          maxLength: 1000
+          example: We are looking for an experienced software engineer...
+        location:
+          type: string
+          maxLength: 100
+          example: Melbourne, Australia
+        primaryEmploymentType:
+          type: string
+          enum: [FULL_TIME, PART_TIME, CONTRACT, INTERNSHIP]
+          example: FULL_TIME
+        additionalEmploymentTypes:
+          type: array
+          items:
+            type: string
+            enum: [FULL_TIME, PART_TIME, CONTRACT, INTERNSHIP]
+        salaryType:
+          type: string
+          enum: [RANGE, ESTIMATION, NEGOTIABLE]
+          example: RANGE
+        salaryMin:
+          type: integer
+          description: Required if salaryType is RANGE
+          example: 100000
+        salaryMax:
+          type: integer
+          description: Required if salaryType is RANGE
+          example: 150000
+        salaryCurrency:
+          type: string
+          example: AUD
+        salaryEstimationType:
+          type: string
+          enum: [ABOUT, UP_TO, FROM, NEGOTIABLE]
+        salaryAmount:
+          type: integer
+          description: Required if salaryType is ESTIMATION
+        expiryDate:
+          type: string
+          format: date
+          example: "2025-12-31"
+        skills:
+          type: array
+          items:
+            type: string
+          example: ["Java", "Spring Boot", "MongoDB"]
+
+    JobPostUpdateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 1000
+        location:
+          type: string
+          maxLength: 100
+        primaryEmploymentType:
+          type: string
+          enum: [FULL_TIME, PART_TIME, CONTRACT, INTERNSHIP]
+        additionalEmploymentTypes:
+          type: array
+          items:
+            type: string
+        salaryType:
+          type: string
+          enum: [RANGE, ESTIMATION, NEGOTIABLE]
+        salaryMin:
+          type: integer
+        salaryMax:
+          type: integer
+        salaryCurrency:
+          type: string
+        salaryEstimationType:
+          type: string
+        salaryAmount:
+          type: integer
+        expiryDate:
+          type: string
+          format: date
+        skills:
+          type: array
+          items:
+            type: string
+
+    JobPostResponse:
+      type: object
+      properties:
+        jobId:
+          type: string
+          example: JP-26319302-c7e1-4368-834c-75d3626512c9
+        companyId:
+          type: string
+        companyName:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        location:
+          type: string
+        primaryEmploymentType:
+          type: string
+        additionalEmploymentTypes:
+          type: array
+          items:
+            type: string
+        salaryDisplay:
+          type: string
+          example: "100,000 - 150,000 AUD"
+        status:
+          type: string
+          enum: [PUBLIC, PRIVATE]
+        postedDate:
+          type: string
+          format: date-time
+        expiryDate:
+          type: string
+          format: date
+        skills:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time

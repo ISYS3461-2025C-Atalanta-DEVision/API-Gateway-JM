@@ -107,6 +107,7 @@ gateway:
     - /swagger-ui/**
     - /v3/api-docs/**
     - /webjars/**
+    - /openapi.yaml
     # Auth service public endpoints (with service prefix for Eureka routing)
     - /auth-service/api/auth/login
     - /auth-service/api/auth/register
@@ -188,8 +189,8 @@ springdoc:
     enabled: true
     path: /swagger-ui.html
     urls:
-      - name: API Gateway
-        url: /v3/api-docs
+      - name: DevVision Job Manager API
+        url: /openapi.yaml
     display-request-duration: true
     operations-sorter: alpha
     tags-sorter: alpha
