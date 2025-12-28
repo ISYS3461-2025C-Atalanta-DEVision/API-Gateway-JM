@@ -80,7 +80,12 @@ internal:
 external:
   api-key: ${EXTERNAL_API_KEY:devision-ja-external-api-key-2024}
   endpoints:
+    # Company Public Profile Data (Requirement #1)
     - /profile-service/api/profiles
+    # Job Post Data (Requirement #2)
+    - /jobpost-service/api/job-posts
+    # Subscription Payment API (Requirement #3)
+    - /payment-service/api/payments
 
 # JWT Configuration (must match auth-service)
 jwt:
