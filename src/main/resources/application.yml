@@ -102,6 +102,11 @@ gateway:
   public-endpoints:
     - /actuator/health
     - /actuator/info
+    # Swagger/OpenAPI endpoints
+    - /swagger-ui.html
+    - /swagger-ui/**
+    - /v3/api-docs/**
+    - /webjars/**
     # Auth service public endpoints (with service prefix for Eureka routing)
     - /auth-service/api/auth/login
     - /auth-service/api/auth/register
@@ -173,6 +178,22 @@ management:
 # In production, set CORS_ALLOWED_ORIGINS to your frontend URL(s)
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,http://localhost:5174,http://127.0.0.1:3000,http://127.0.0.1:5173,http://127.0.0.1:5174}
+
+# SpringDoc OpenAPI / Swagger Configuration
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    urls:
+      - name: API Gateway
+        url: /v3/api-docs
+    display-request-duration: true
+    operations-sorter: alpha
+    tags-sorter: alpha
+  show-actuator: true
 
 # Logging Configuration
 logging:
