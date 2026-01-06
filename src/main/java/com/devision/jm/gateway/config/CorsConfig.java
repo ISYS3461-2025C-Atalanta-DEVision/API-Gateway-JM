@@ -30,16 +30,25 @@ public class CorsConfig {
 
         // Parse allowed origins from environment variable
         // In production, set CORS_ALLOWED_ORIGINS to your frontend URL(s)
-        List<String> origins = new ArrayList<>();
-        for (String origin : allowedOrigins.split(",")) {
-            String trimmed = origin.trim();
-            if (!trimmed.isEmpty()) {
-                origins.add(trimmed);
+        // Use "*" to allow all origins (uses allowedOriginPatterns for credentials support)
+        //
+        // TO SWITCH BACK TO SPECIFIC ORIGINS ONLY:
+        // 1. In Render, change CORS_ALLOWED_ORIGINS from "*" to your actual frontend URLs:
+        //    Example: https://jm-frontend.onrender.com,https://ja-frontend.onrender.com
+        // 2. No code changes needed - just update the env var
+        //
+        if ("*".equals(allowedOrigins.trim())) {
+            corsConfig.setAllowedOriginPatterns(List.of("*"));
+        } else {
+            List<String> origins = new ArrayList<>();
+            for (String origin : allowedOrigins.split(",")) {
+                String trimmed = origin.trim();
+                if (!trimmed.isEmpty()) {
+                    origins.add(trimmed);
+                }
             }
+            corsConfig.setAllowedOrigins(origins);
         }
-
-        // Set allowed origins (only frontend URLs)
-        corsConfig.setAllowedOrigins(origins);
 
         // Allowed HTTP methods
         corsConfig.setAllowedMethods(Arrays.asList(
