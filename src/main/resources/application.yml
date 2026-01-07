@@ -142,9 +142,6 @@ gateway:
     # Public job listings (Job Post Service)
     - /api/job-posts/public/**
     - /jobpost-service/api/job-posts/public/**
-    # Stripe webhook (Payment Service) - must be public for Stripe to call
-    - /payment-service/api/payments/webhooks/stripe
-    - /api/payments/webhooks/stripe
 
   # Admin-only endpoints (require ADMIN role)
   # Add admin endpoints here - users without ADMIN role get 403 Forbidden

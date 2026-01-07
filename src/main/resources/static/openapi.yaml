@@ -859,29 +859,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/SubscriptionResponse'
 
-  /payment-service/api/payments/webhooks/stripe:
-    post:
-      tags:
-        - Payments
-      summary: Stripe webhook handler
-      description: Webhook endpoint for Stripe payment events (public, no authentication required)
-      security: []
-      parameters:
-        - name: Stripe-Signature
-          in: header
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: string
-      responses:
-        '200':
-          description: Webhook processed successfully
-
 components:
   securitySchemes:
     bearerAuth:
