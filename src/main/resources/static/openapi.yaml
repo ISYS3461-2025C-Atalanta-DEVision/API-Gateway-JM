@@ -18,12 +18,16 @@ info:
     - **Auth Service** - Authentication & Authorization
     - **Profile Service** - Company Profiles & Events
     - **Job Post Service** - Job Listings
+    - **Payment Service** - Subscription & Payment Management
 
     ## External API Endpoints (API Key Access)
 
     The following endpoints are accessible with API Key for JA team:
     - `/profile-service/api/profiles` - Company profiles
     - `/jobpost-service/api/job-posts` - Job post data
+    - `/payment-service/api/payments/subscriptions/**` - Subscription management
+    - `/payment-service/api/payments/transactions/**` - Transaction data
+    - `/payment-service/api/payments/premium/**` - Premium status
   contact:
     name: DevVision Team
     email: support@devision.com
@@ -43,6 +47,8 @@ tags:
     description: Company Events management
   - name: JobPosts
     description: Job Post management
+  - name: Payments
+    description: Subscription and Payment management
 
 security:
   - bearerAuth: []
@@ -654,6 +660,297 @@ paths:
                 items:
                   $ref: '#/components/schemas/JobPostResponse'
 
+  # ==================== PAYMENT SERVICE ====================
+  /payment-service/api/payments/subscriptions/intent:
+    post:
+      tags:
+        - Payments
+      summary: Create subscription intent
+      description: Create a Stripe subscription intent and return client secret for payment
+      security:
+        - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - payerEmail
+                - planType
+              properties:
+                companyId:
+                  type: string
+                  description: Company ID (for company subscriptions)
+                applicantId:
+                  type: string
+                  description: Applicant ID (for applicant subscriptions)
+                payerEmail:
+                  type: string
+                  format: email
+                planType:
+                  type: string
+                  enum: [PREMIUM, BASIC]
+                currency:
+                  type: string
+                  default: USD
+      responses:
+        '200':
+          description: Subscription intent created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  clientSecret:
+                    type: string
+                  stripeSubscriptionId:
+                    type: string
+                  stripePaymentIntentId:
+                    type: string
+                  transactionId:
+                    type: string
+
+  /payment-service/api/payments/transactions/{transactionId}:
+    get:
+      tags:
+        - Payments
+      summary: Get transaction by ID
+      security:
+        - apiKeyAuth: []
+      parameters:
+        - name: transactionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Transaction details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+
+  /payment-service/api/payments/transactions:
+    get:
+      tags:
+        - Payments
+      summary: Search transactions
+      security:
+        - apiKeyAuth: []
+      parameters:
+        - name: payerEmail
+          in: query
+          schema:
+            type: string
+        - name: companyId
+          in: query
+          schema:
+            type: string
+        - name: applicantId
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, COMPLETED, FAILED, CANCELLED]
+      responses:
+        '200':
+          description: List of transactions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TransactionResponse'
+
+  /payment-service/api/payments/subscriptions/{subscriptionId}:
+    get:
+      tags:
+        - Payments
+      summary: Get subscription by ID
+      security:
+        - apiKeyAuth: []
+      parameters:
+        - name: subscriptionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Subscription details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionResponse'
+
+  /payment-service/api/payments/premium/company/{companyId}:
+    get:
+      tags:
+        - Payments
+      summary: Get company premium status
+      security:
+        - apiKeyAuth: []
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Premium status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PremiumStatusResponse'
+
+  /payment-service/api/payments/premium/applicant/{applicantId}:
+    get:
+      tags:
+        - Payments
+      summary: Get applicant premium status
+      security:
+        - apiKeyAuth: []
+      parameters:
+        - name: applicantId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Premium status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PremiumStatusResponse'
+
+  /payment-service/api/payments/subscriptions/company/{companyId}:
+    get:
+      tags:
+        - Payments
+      summary: Get all company subscriptions
+      security:
+        - apiKeyAuth: []
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of subscriptions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SubscriptionResponse'
+
+  /payment-service/api/payments/subscriptions/applicant/{applicantId}:
+    get:
+      tags:
+        - Payments
+      summary: Get all applicant subscriptions
+      security:
+        - apiKeyAuth: []
+      parameters:
+        - name: applicantId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of subscriptions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SubscriptionResponse'
+
+  /payment-service/api/payments/subscriptions/company/{companyId}/cancel:
+    post:
+      tags:
+        - Payments
+      summary: Cancel company subscription
+      security:
+        - apiKeyAuth: []
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: cancelAtPeriodEnd
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Subscription cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionResponse'
+
+  /payment-service/api/payments/subscriptions/applicant/{applicantId}/cancel:
+    post:
+      tags:
+        - Payments
+      summary: Cancel applicant subscription
+      security:
+        - apiKeyAuth: []
+      parameters:
+        - name: applicantId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: cancelAtPeriodEnd
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Subscription cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionResponse'
+
+  /payment-service/api/payments/webhooks/stripe:
+    post:
+      tags:
+        - Payments
+      summary: Stripe webhook handler
+      description: Webhook endpoint for Stripe payment events (public, no authentication required)
+      security: []
+      parameters:
+        - name: Stripe-Signature
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: string
+      responses:
+        '200':
+          description: Webhook processed successfully
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1031,3 +1328,74 @@ components:
         updatedAt:
           type: string
           format: date-time
+
+    TransactionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, COMPLETED, FAILED, CANCELLED]
+        amount:
+          type: integer
+          format: int64
+          description: Amount in cents
+        currency:
+          type: string
+        payerEmail:
+          type: string
+        companyId:
+          type: string
+        applicantId:
+          type: string
+        subscriptionId:
+          type: string
+        stripePaymentId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    SubscriptionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        companyId:
+          type: string
+        applicantId:
+          type: string
+        payerEmail:
+          type: string
+        planType:
+          type: string
+          enum: [PREMIUM, BASIC]
+        status:
+          type: string
+          enum: [PENDING, ACTIVE, CANCELLING, CANCELLED, EXPIRED]
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        stripeSubscriptionId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    PremiumStatusResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+          description: Company ID or Applicant ID
+        isPremium:
+          type: boolean
+        status:
+          type: string
+        endDate:
+          type: string
+          format: date
