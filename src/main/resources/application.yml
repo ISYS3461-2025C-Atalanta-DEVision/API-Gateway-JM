@@ -89,11 +89,11 @@ external:
     - /profile-service/api/profiles
     # Job Post Data (Requirement #2)
     - /jobpost-service/api/job-posts
-    # Subscription Payment API (Requirement #3)
-    # All payment endpoints accessible with API key except /internal/**
-    - /payment-service/api/payments/subscriptions/**
+    # Subscription Payment API (Requirement #3) - Applicant endpoints only
+    - /payment-service/api/payments/subscriptions/intent
+    - /payment-service/api/payments/subscriptions/applicant/**
     - /payment-service/api/payments/transactions/**
-    - /payment-service/api/payments/premium/**
+    - /payment-service/api/payments/premium/applicant/**
 
 # JWT Configuration (must match auth-service)
 jwt:

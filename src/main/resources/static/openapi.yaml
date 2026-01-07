@@ -25,9 +25,10 @@ info:
     The following endpoints are accessible with API Key for JA team:
     - `/profile-service/api/profiles` - Company profiles
     - `/jobpost-service/api/job-posts` - Job post data
-    - `/payment-service/api/payments/subscriptions/**` - Subscription management
+    - `/payment-service/api/payments/subscriptions/intent` - Create subscription
+    - `/payment-service/api/payments/subscriptions/applicant/**` - Applicant subscription management
     - `/payment-service/api/payments/transactions/**` - Transaction data
-    - `/payment-service/api/payments/premium/**` - Premium status
+    - `/payment-service/api/payments/premium/applicant/**` - Applicant premium status
   contact:
     name: DevVision Team
     email: support@devision.com
