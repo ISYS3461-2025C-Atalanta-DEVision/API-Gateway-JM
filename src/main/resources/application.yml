@@ -90,7 +90,10 @@ external:
     # Job Post Data (Requirement #2)
     - /jobpost-service/api/job-posts
     # Subscription Payment API (Requirement #3)
-    - /payment-service/api/payments
+    # All payment endpoints accessible with API key except /internal/**
+    - /payment-service/api/payments/subscriptions/**
+    - /payment-service/api/payments/transactions/**
+    - /payment-service/api/payments/premium/**
 
 # JWT Configuration (must match auth-service)
 jwt:
