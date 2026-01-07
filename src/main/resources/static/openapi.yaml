@@ -789,27 +789,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/SubscriptionResponse'
 
-  /payment-service/api/payments/premium/company/{companyId}:
-    get:
-      tags:
-        - Payments
-      summary: Get company premium status
-      security:
-        - apiKeyAuth: []
-      parameters:
-        - name: companyId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Premium status
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PremiumStatusResponse'
-
   /payment-service/api/payments/premium/applicant/{applicantId}:
     get:
       tags:
@@ -830,29 +809,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PremiumStatusResponse'
-
-  /payment-service/api/payments/subscriptions/company/{companyId}:
-    get:
-      tags:
-        - Payments
-      summary: Get all company subscriptions
-      security:
-        - apiKeyAuth: []
-      parameters:
-        - name: companyId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: List of subscriptions
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/SubscriptionResponse'
 
   /payment-service/api/payments/subscriptions/applicant/{applicantId}:
     get:
@@ -876,32 +832,6 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/SubscriptionResponse'
-
-  /payment-service/api/payments/subscriptions/company/{companyId}/cancel:
-    post:
-      tags:
-        - Payments
-      summary: Cancel company subscription
-      security:
-        - apiKeyAuth: []
-      parameters:
-        - name: companyId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: cancelAtPeriodEnd
-          in: query
-          schema:
-            type: boolean
-            default: false
-      responses:
-        '200':
-          description: Subscription cancelled
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SubscriptionResponse'
 
   /payment-service/api/payments/subscriptions/applicant/{applicantId}/cancel:
     post:
