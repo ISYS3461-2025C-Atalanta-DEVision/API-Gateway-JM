@@ -14,9 +14,9 @@ import java.util.List;
 /**
  * CORS Configuration for API Gateway
  *
- * Handles Cross-Origin Resource Sharing for frontend applications.
- * In production, only allows requests from configured frontend URLs.
- * This ensures only the frontend can access the API Gateway globally.
+ * Handles Cross-Origin Resource Sharing for frontend applications. In
+ * production, only allows requests from configured frontend URLs. This ensures
+ * only the frontend can access the API Gateway globally.
  */
 @Configuration
 public class CorsConfig {
@@ -62,14 +62,17 @@ public class CorsConfig {
                 "Accept",
                 "Origin",
                 "X-Requested-With",
-                "X-Refresh-Token"
+                "X-Refresh-Token",
+                "x-external-api-key",
+                "X-External-Api-Key"
         ));
 
         // Exposed headers (accessible to frontend)
         corsConfig.setExposedHeaders(Arrays.asList(
                 "Authorization",
                 "X-Refresh-Token",
-                "X-Token-Expired"
+                "X-Token-Expired",
+                "X-Auth-Error"
         ));
 
         // Allow credentials (cookies, authorization headers)
