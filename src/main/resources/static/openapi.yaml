@@ -11,7 +11,7 @@ info:
     Use Bearer token authentication with JWT obtained from `/auth-service/api/auth/login`.
 
     ### For External Partners (JA Team)
-    Use API Key authentication with header: `X-API-Key: <your-api-key>`
+    Use API Key authentication with header: `X-External-Api-Key: <your-api-key>`
 
     ## Available Services
 
@@ -29,6 +29,7 @@ info:
     - `/payment-service/api/payments/subscriptions/applicant/**` - Applicant subscription management
     - `/payment-service/api/payments/transactions/**` - Transaction data
     - `/payment-service/api/payments/premium/applicant/**` - Applicant premium status
+    - `/auth-service/api/admin/companies/**` - Company management (deactivate/activate/delete)
   contact:
     name: DevVision Team
     email: support@devision.com
@@ -42,6 +43,8 @@ servers:
 tags:
   - name: Auth
     description: Authentication & Authorization endpoints
+  - name: Admin
+    description: Admin endpoints for JA team (External API Key required)
   - name: Profile
     description: Company Profile management
   - name: Events
@@ -195,6 +198,98 @@ paths:
             application/json:
               schema:
                 type: boolean
+
+  # ==================== ADMIN ENDPOINTS (JA TEAM) ====================
+  /auth-service/api/admin/companies/{userId}/deactivate:
+    post:
+      tags:
+        - Admin
+      summary: Deactivate a company account
+      description: |
+        Deactivate a company account. The account will be marked as inactive and the user will not be able to log in.
+
+        **Authentication:** Requires `X-External-Api-Key` header.
+      security:
+        - apiKeyAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The user ID of the company account to deactivate
+          example: "696125af458ffd19b58374ce"
+      responses:
+        '200':
+          description: Account deactivated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserResponse'
+        '401':
+          description: Invalid or missing API key
+        '404':
+          description: User not found
+
+  /auth-service/api/admin/companies/{userId}/activate:
+    post:
+      tags:
+        - Admin
+      summary: Activate a company account
+      description: |
+        Activate a previously deactivated company account. The user will be able to log in again.
+
+        **Authentication:** Requires `X-External-Api-Key` header.
+      security:
+        - apiKeyAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The user ID of the company account to activate
+          example: "696125af458ffd19b58374ce"
+      responses:
+        '200':
+          description: Account activated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserResponse'
+        '401':
+          description: Invalid or missing API key
+        '404':
+          description: User not found
+
+  /auth-service/api/admin/companies/{userId}:
+    delete:
+      tags:
+        - Admin
+      summary: Delete a company account
+      description: |
+        Permanently delete a company account. This action cannot be undone.
+
+        **Authentication:** Requires `X-External-Api-Key` header.
+
+        **Warning:** This will permanently remove the user and all associated data.
+      security:
+        - apiKeyAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The user ID of the company account to delete
+          example: "696125af458ffd19b58374ce"
+      responses:
+        '204':
+          description: Account deleted successfully
+        '401':
+          description: Invalid or missing API key
+        '404':
+          description: User not found
 
   # ==================== PROFILE SERVICE ====================
   /profile-service/api/profiles/me:
@@ -870,10 +965,32 @@ components:
     apiKeyAuth:
       type: apiKey
       in: header
-      name: X-API-Key
+      name: X-External-Api-Key
       description: External API Key for JA team access
 
   schemas:
+    # ==================== ADMIN SCHEMAS ====================
+    AdminUserResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+          description: The user ID
+          example: "696125af458ffd19b58374ce"
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: "company@example.com"
+        active:
+          type: boolean
+          description: Whether the account is active
+          example: true
+        message:
+          type: string
+          description: Status message
+          example: "Account deactivated successfully"
+
     # ==================== AUTH SCHEMAS ====================
     CompanyRegistrationRequest:
       type: object
