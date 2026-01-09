@@ -94,6 +94,8 @@ external:
     - /payment-service/api/payments/subscriptions/applicant/**
     - /payment-service/api/payments/transactions/**
     - /payment-service/api/payments/premium/applicant/**
+    # Admin API - Company Management (for JA team)
+    - /auth-service/api/admin/companies/**
 
 # JWT Configuration (must match auth-service)
 jwt:
